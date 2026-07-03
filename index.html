@@ -1,0 +1,866 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NINJA — Image Recon</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Anton&family=Barlow+Condensed:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#0a0a0c;
+    --ink-2:#111114;
+    --panel:#141417;
+    --line:#2a2a30;
+    --steel:#8a8f98;
+    --steel-dim:#4a4e56;
+    --blade:#ff2e3e;
+    --blade-dim:#ff2e3e33;
+    --paper:#ece7dc;
+    --paper-dim:#ece7dc99;
+    --ok:#3ddc84;
+  }
+
+  *{margin:0;padding:0;box-sizing:border-box;}
+
+  html{scroll-behavior:smooth;}
+
+  body{
+    background:var(--ink);
+    color:var(--paper);
+    font-family:'Barlow Condensed', sans-serif;
+    min-height:100vh;
+    overflow-x:hidden;
+    position:relative;
+  }
+
+  @media (prefers-reduced-motion: reduce){
+    *{animation-duration:.01ms !important; animation-iteration-count:1 !important; transition-duration:.01ms !important; scroll-behavior:auto !important;}
+  }
+
+  /* ---------- ambient background ---------- */
+  .grain{
+    position:fixed; inset:0; pointer-events:none; z-index:1; opacity:.035; mix-blend-mode:overlay;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  }
+
+  .bg-glow{
+    position:fixed; inset:0; z-index:0; pointer-events:none;
+    background:
+      radial-gradient(600px 400px at 15% 10%, var(--blade-dim), transparent 60%),
+      radial-gradient(500px 500px at 90% 80%, #ff2e3e18, transparent 60%);
+  }
+
+  .bg-grid{
+    position:fixed; inset:0; z-index:0; pointer-events:none; opacity:.35;
+    background-image:
+      linear-gradient(var(--line) 1px, transparent 1px),
+      linear-gradient(90deg, var(--line) 1px, transparent 1px);
+    background-size:64px 64px;
+    -webkit-mask-image:radial-gradient(ellipse 80% 60% at 50% 30%, black, transparent 75%);
+            mask-image:radial-gradient(ellipse 80% 60% at 50% 30%, black, transparent 75%);
+  }
+
+  /* floating particles (embers) */
+  .embers{position:fixed; inset:0; z-index:1; pointer-events:none; overflow:hidden;}
+  .ember{
+    position:absolute; bottom:-10px; width:3px; height:3px; border-radius:50%;
+    background:var(--blade); box-shadow:0 0 6px 1px var(--blade);
+    animation:rise linear infinite;
+    opacity:0;
+  }
+  @keyframes rise{
+    0%{ transform:translateY(0) translateX(0); opacity:0; }
+    8%{ opacity:.8; }
+    90%{ opacity:.4; }
+    100%{ transform:translateY(-105vh) translateX(var(--drift, 20px)); opacity:0; }
+  }
+
+  /* ---------- layout shell ---------- */
+  .wrap{position:relative; z-index:2; max-width:1180px; margin:0 auto; padding:0 24px;}
+
+  header{
+    display:flex; align-items:center; justify-content:space-between;
+    padding:28px 0 10px;
+    opacity:0; animation:dropIn .7s ease forwards;
+  }
+  @keyframes dropIn{ from{opacity:0; transform:translateY(-14px);} to{opacity:1; transform:translateY(0);} }
+
+  .brand{display:flex; align-items:center; gap:12px;}
+  .brand-mark{
+    width:34px; height:34px; position:relative; flex-shrink:0;
+  }
+  .brand-mark svg{width:100%; height:100%; display:block;}
+  .brand-name{
+    font-family:'Anton', sans-serif;
+    font-size:26px; letter-spacing:.06em;
+    line-height:1;
+    color:var(--paper);
+  }
+  .brand-name span{color:var(--blade);}
+
+  .tagline{
+    font-family:'JetBrains Mono', monospace;
+    font-size:11px; letter-spacing:.18em; text-transform:uppercase;
+    color:var(--steel);
+  }
+
+  /* ---------- hero ---------- */
+  .hero{
+    padding:56px 0 40px;
+    text-align:center;
+  }
+  .kicker{
+    display:inline-flex; align-items:center; gap:8px;
+    font-family:'JetBrains Mono', monospace; font-size:11px; letter-spacing:.22em; text-transform:uppercase;
+    color:var(--blade); border:1px solid var(--blade-dim); background:#ff2e3e0d;
+    padding:6px 14px; border-radius:999px;
+    opacity:0; animation:fadeUp .6s ease .1s forwards;
+  }
+  .kicker .dot{width:6px; height:6px; border-radius:50%; background:var(--blade); animation:pulse 1.6s ease-in-out infinite;}
+  @keyframes pulse{0%,100%{opacity:1; box-shadow:0 0 0 0 var(--blade-dim);} 50%{opacity:.5; box-shadow:0 0 0 5px transparent;}}
+
+  h1{
+    font-family:'Anton', sans-serif;
+    font-size:clamp(48px, 9vw, 104px);
+    line-height:.95;
+    letter-spacing:.01em;
+    margin:18px 0 14px;
+    opacity:0; animation:fadeUp .7s ease .2s forwards;
+  }
+  h1 .cut{
+    display:inline-block;
+    background:linear-gradient(180deg, var(--paper) 60%, var(--blade) 60%);
+    -webkit-background-clip:text; background-clip:text; color:transparent;
+  }
+
+  .hero p{
+    max-width:520px; margin:0 auto;
+    font-size:19px; color:var(--paper-dim); font-weight:400;
+    opacity:0; animation:fadeUp .7s ease .32s forwards;
+  }
+
+  @keyframes fadeUp{ from{opacity:0; transform:translateY(16px);} to{opacity:1; transform:translateY(0);} }
+
+  /* ---------- key setup ---------- */
+  .keybar{
+    max-width:640px; margin:34px auto 0;
+    opacity:0; animation:fadeUp .7s ease .42s forwards;
+  }
+  .keybar-inner{
+    display:flex; gap:10px; align-items:center;
+    background:var(--panel); border:1px solid var(--line); border-radius:10px;
+    padding:10px 10px 10px 16px;
+    transition:border-color .25s ease, box-shadow .25s ease;
+  }
+  .keybar-inner:focus-within{ border-color:var(--blade); box-shadow:0 0 0 3px var(--blade-dim); }
+  .keybar-inner svg{flex-shrink:0; opacity:.5;}
+  .keybar input{
+    flex:1; background:transparent; border:0; outline:0;
+    font-family:'JetBrains Mono', monospace; font-size:13px; color:var(--paper);
+    letter-spacing:.02em;
+  }
+  .keybar input::placeholder{color:var(--steel-dim);}
+  .keybar button{
+    font-family:'Barlow Condensed', sans-serif; font-weight:600; font-size:14px; letter-spacing:.03em;
+    background:transparent; color:var(--steel); border:1px solid var(--line); border-radius:7px;
+    padding:8px 14px; cursor:pointer; transition:all .2s ease; white-space:nowrap;
+  }
+  .keybar button:hover{ color:var(--paper); border-color:var(--steel); }
+  .key-status{
+    display:flex; align-items:center; gap:6px;
+    font-family:'JetBrains Mono', monospace; font-size:11px; color:var(--steel-dim);
+    margin-top:9px; padding-left:4px; letter-spacing:.04em;
+  }
+  .key-status .led{width:6px; height:6px; border-radius:50%; background:var(--steel-dim); transition:all .3s ease;}
+  .key-status.armed .led{ background:var(--ok); box-shadow:0 0 6px 1px #3ddc8488; }
+  .key-status.armed{ color:var(--ok); }
+  .key-status a{color:inherit; text-decoration:underline; text-underline-offset:2px; opacity:.8;}
+  .key-status a:hover{opacity:1;}
+
+  /* ---------- dojo (main console) ---------- */
+  .dojo{
+    margin:56px 0 90px;
+    display:grid; grid-template-columns:1fr 1fr; gap:22px;
+    opacity:0; animation:fadeUp .7s ease .5s forwards;
+  }
+  @media (max-width:860px){ .dojo{grid-template-columns:1fr;} }
+
+  .panel{
+    background:var(--panel); border:1px solid var(--line); border-radius:16px;
+    position:relative; overflow:hidden;
+    min-height:480px;
+    display:flex; flex-direction:column;
+  }
+  .panel-head{
+    display:flex; align-items:center; justify-content:space-between;
+    padding:16px 20px; border-bottom:1px solid var(--line);
+    font-family:'JetBrains Mono', monospace; font-size:11px; letter-spacing:.16em; text-transform:uppercase; color:var(--steel);
+  }
+  .panel-head .idx{color:var(--blade);}
+
+  /* ---- upload panel ---- */
+  .dropzone{
+    flex:1; margin:20px; border-radius:12px;
+    border:1.5px dashed var(--line);
+    display:flex; flex-direction:column; align-items:center; justify-content:center; gap:14px;
+    text-align:center; padding:30px; cursor:pointer;
+    position:relative; overflow:hidden;
+    transition:border-color .25s ease, background .25s ease;
+  }
+  .dropzone:hover, .dropzone.drag{ border-color:var(--blade); background:#ff2e3e08; }
+  .dropzone input{ position:absolute; inset:0; opacity:0; cursor:pointer; }
+
+  .dz-icon{
+    width:52px; height:52px; color:var(--steel-dim); transition:color .25s ease, transform .25s ease;
+  }
+  .dropzone:hover .dz-icon{ color:var(--blade); transform:translateY(-3px); }
+  .dz-title{font-size:19px; color:var(--paper); font-weight:500;}
+  .dz-sub{font-family:'JetBrains Mono', monospace; font-size:11px; color:var(--steel-dim); letter-spacing:.05em;}
+
+  .preview-holder{
+    flex:1; margin:20px; border-radius:12px; overflow:hidden; position:relative;
+    display:none; background:#000;
+  }
+  .preview-holder.show{display:block;}
+  .preview-holder img{ width:100%; height:100%; object-fit:contain; display:block; }
+
+  .rescan-btn{
+    position:absolute; top:10px; right:10px; z-index:5;
+    background:#0a0a0cd0; border:1px solid var(--line); color:var(--paper);
+    font-family:'JetBrains Mono', monospace; font-size:10px; letter-spacing:.1em; text-transform:uppercase;
+    padding:7px 11px; border-radius:7px; cursor:pointer; backdrop-filter:blur(4px);
+    transition:border-color .2s ease;
+  }
+  .rescan-btn:hover{ border-color:var(--blade); color:var(--blade); }
+
+  /* scan sweep line over the preview during processing */
+  .sweep{
+    position:absolute; left:0; right:0; top:0; height:3px;
+    background:linear-gradient(90deg, transparent, var(--blade), transparent);
+    box-shadow:0 0 16px 3px var(--blade);
+    display:none;
+    animation:sweepMove 1.4s cubic-bezier(.65,0,.35,1) infinite;
+  }
+  .sweep.on{display:block;}
+  @keyframes sweepMove{
+    0%{ top:0; opacity:.9; }
+    50%{ opacity:1; }
+    100%{ top:calc(100% - 3px); opacity:.9; }
+  }
+  .sweep-tint{
+    position:absolute; inset:0; background:linear-gradient(180deg, #ff2e3e22, transparent 40%);
+    display:none; pointer-events:none;
+  }
+  .sweep-tint.on{display:block;}
+
+  /* action row */
+  .action-row{ padding:16px 20px 20px; border-top:1px solid var(--line); display:flex; gap:12px; align-items:center; }
+
+  .process-btn{
+    position:relative; flex:1;
+    font-family:'Anton', sans-serif; font-size:18px; letter-spacing:.04em;
+    color:var(--ink); background:var(--blade);
+    border:none; border-radius:10px; padding:15px 20px;
+    cursor:pointer; overflow:hidden;
+    transition:transform .15s ease, box-shadow .25s ease, opacity .2s ease;
+    box-shadow:0 0 0 0 var(--blade-dim);
+  }
+  .process-btn:hover:not(:disabled){ transform:translateY(-2px); box-shadow:0 8px 24px -6px #ff2e3e66; }
+  .process-btn:active:not(:disabled){ transform:translateY(0); }
+  .process-btn:disabled{ opacity:.45; cursor:not-allowed; }
+  .process-btn .shine{
+    position:absolute; top:0; left:-40%; width:30%; height:100%;
+    background:linear-gradient(120deg, transparent, #ffffff80, transparent);
+    transform:skewX(-20deg); animation:shine 2.8s ease-in-out infinite;
+  }
+  @keyframes shine{ 0%{left:-40%;} 55%{left:130%;} 100%{left:130%;} }
+  .process-btn .btn-label{position:relative; z-index:2; display:flex; align-items:center; justify-content:center; gap:10px;}
+
+  .spinner{
+    width:16px; height:16px; border-radius:50%;
+    border:2.5px solid #0a0a0c55; border-top-color:#0a0a0c; display:none;
+    animation:spin .7s linear infinite;
+  }
+  .process-btn.loading .spinner{ display:inline-block; }
+  .process-btn.loading .btn-text{ display:none; }
+  @keyframes spin{ to{ transform:rotate(360deg); } }
+
+  /* ---- output panel ---- */
+  .readout{ flex:1; padding:22px 24px; overflow-y:auto; }
+  .readout::-webkit-scrollbar{width:6px;}
+  .readout::-webkit-scrollbar-thumb{background:var(--line); border-radius:3px;}
+
+  .empty-state{
+    height:100%; display:flex; flex-direction:column; align-items:center; justify-content:center;
+    gap:12px; color:var(--steel-dim); text-align:center; padding:30px;
+  }
+  .empty-state svg{width:44px; height:44px; opacity:.4;}
+  .empty-state p{font-size:16px; max-width:260px;}
+  .empty-state .mono{font-family:'JetBrains Mono', monospace; font-size:11px; letter-spacing:.08em;}
+
+  .readout-section{ margin-bottom:22px; opacity:0; transform:translateY(10px); animation:lineIn .5s ease forwards; }
+  .readout-section .sec-label{
+    font-family:'JetBrains Mono', monospace; font-size:11px; letter-spacing:.18em; text-transform:uppercase;
+    color:var(--blade); margin-bottom:8px; display:flex; align-items:center; gap:8px;
+  }
+  .readout-section .sec-label::after{ content:''; flex:1; height:1px; background:var(--line); }
+  .readout-section .sec-body{ font-size:17px; line-height:1.5; color:var(--paper); font-weight:400; }
+
+  .tag-grid{ display:flex; flex-wrap:wrap; gap:8px; }
+  .tag{
+    font-family:'JetBrains Mono', monospace; font-size:12px; color:var(--paper-dim);
+    border:1px solid var(--line); background:var(--ink-2); padding:5px 10px; border-radius:6px;
+    opacity:0; transform:scale(.9); animation:tagPop .35s ease forwards;
+  }
+  @keyframes tagPop{ to{ opacity:1; transform:scale(1); } }
+
+  .data-table{ width:100%; border-collapse:collapse; font-family:'JetBrains Mono', monospace; font-size:12.5px; }
+  .data-table tr{ border-bottom:1px solid var(--line); }
+  .data-table tr:last-child{ border-bottom:none; }
+  .data-table td{ padding:9px 4px; }
+  .data-table td:first-child{ color:var(--steel); width:44%; }
+  .data-table td:last-child{ color:var(--paper); text-align:right; }
+
+  @keyframes lineIn{ to{ opacity:1; transform:translateY(0); } }
+
+  /* ---- chart-mode elements ---- */
+  .bias-row{ display:flex; flex-wrap:wrap; align-items:center; gap:16px; }
+  .bias-badge{
+    font-family:'Anton', sans-serif; font-size:15px; letter-spacing:.03em;
+    padding:8px 16px; border-radius:8px; flex-shrink:0;
+    opacity:0; transform:scale(.9); animation:tagPop .4s ease forwards;
+  }
+  .bias-bull{ color:#3ddc84; background:#3ddc8418; border:1px solid #3ddc8455; }
+  .bias-bear{ color:var(--blade); background:var(--blade-dim); border:1px solid #ff2e3e55; }
+  .bias-neutral{ color:#e8c547; background:#e8c54718; border:1px solid #e8c54755; }
+
+  .conf-wrap{ flex:1; min-width:140px; }
+  .conf-label{
+    display:flex; justify-content:space-between;
+    font-family:'JetBrains Mono', monospace; font-size:11px; color:var(--steel); margin-bottom:5px; letter-spacing:.05em;
+  }
+  .conf-track{ height:6px; border-radius:3px; background:var(--ink-2); overflow:hidden; }
+  .conf-fill{
+    height:100%; border-radius:3px; width:0;
+    animation:fillBar 1s cubic-bezier(.16,1,.3,1) forwards; animation-delay:.15s;
+  }
+  .conf-fill.bias-bull{ background:linear-gradient(90deg, #3ddc8455, #3ddc84); border:none; }
+  .conf-fill.bias-bear{ background:linear-gradient(90deg, #ff2e3e55, var(--blade)); border:none; }
+  .conf-fill.bias-neutral{ background:linear-gradient(90deg, #e8c54755, #e8c547); border:none; }
+  @keyframes fillBar{ from{ width:0; } }
+
+  .level-list{ list-style:none; display:flex; flex-direction:column; gap:8px; }
+  .level-list li{
+    font-size:15px; color:var(--paper); padding-left:18px; position:relative;
+  }
+  .level-list li::before{
+    content:''; position:absolute; left:0; top:8px; width:8px; height:2px; background:var(--blade);
+  }
+
+  .disclaimer-box{
+    border-top:1px dashed var(--line); padding-top:16px; margin-top:4px;
+  }
+
+  .error-box{
+    border:1px solid #ff2e3e55; background:#ff2e3e0f; color:#ffb3b8;
+    padding:14px 16px; border-radius:10px; font-size:14px; line-height:1.5;
+    display:flex; gap:10px; align-items:flex-start;
+    opacity:0; animation:fadeUp .4s ease forwards;
+  }
+  .error-box svg{ flex-shrink:0; width:18px; height:18px; margin-top:1px; }
+
+  /* footer */
+  footer{
+    text-align:center; padding:30px 0 50px;
+    font-family:'JetBrains Mono', monospace; font-size:11px; letter-spacing:.1em; color:var(--steel-dim);
+  }
+  footer a{color:var(--steel); text-decoration:none; border-bottom:1px dotted var(--steel-dim);}
+  footer a:hover{color:var(--blade); border-color:var(--blade);}
+</style>
+</head>
+<body>
+
+<div class="bg-glow"></div>
+<div class="bg-grid"></div>
+<div class="grain"></div>
+<div class="embers" id="embers"></div>
+
+<div class="wrap">
+  <header>
+    <div class="brand">
+      <div class="brand-mark">
+        <svg viewBox="0 0 40 40" fill="none">
+          <path d="M20 2 L36 20 L20 38 L4 20 Z" stroke="#ff2e3e" stroke-width="2" fill="#0a0a0c"/>
+          <path d="M20 10 L28 20 L20 30 L12 20 Z" fill="#ff2e3e"/>
+        </svg>
+      </div>
+      <div>
+        <div class="brand-name">NIN<span>JA</span></div>
+      </div>
+    </div>
+    <div class="tagline">Image Recon Unit</div>
+  </header>
+
+  <section class="hero">
+    <div class="kicker"><span class="dot"></span> Gemini 3.5 Flash · Live Vision Model</div>
+    <h1>Strike fast.<br><span class="cut">Read everything.</span></h1>
+    <p>Upload an image or a Quotex-style trading chart. NINJA reads it silently and returns a full breakdown — content, technical details, or trend bias.</p>
+  </section>
+
+  <div class="keybar">
+    <div class="keybar-inner">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="10" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+      <input type="password" id="apiKey" placeholder="Paste your Gemini API key — kept in this browser only" autocomplete="off" spellcheck="false">
+      <button id="toggleKey" type="button">Show</button>
+    </div>
+    <div class="key-status" id="keyStatus">
+      <span class="led"></span>
+      <span id="keyStatusText">No key armed — get one free at <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">Google AI Studio</a></span>
+    </div>
+  </div>
+
+  <div class="dojo">
+    <!-- LEFT: upload -->
+    <div class="panel">
+      <div class="panel-head"><span><span class="idx">01</span> · Target Image</span><span id="fileMeta">—</span></div>
+
+      <label class="dropzone" id="dropzone">
+        <input type="file" id="fileInput" accept="image/*">
+        <svg class="dz-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 16.5V19a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2.5M7 9l5-5 5 5M12 4v13"/></svg>
+        <div class="dz-title">Drop image or click to upload</div>
+        <div class="dz-sub">Photos, screenshots, or Quotex/trading charts — stays in your browser</div>
+      </label>
+
+      <div class="preview-holder" id="previewHolder">
+        <img id="previewImg" alt="Uploaded target preview">
+        <div class="sweep-tint" id="sweepTint"></div>
+        <div class="sweep" id="sweep"></div>
+        <button class="rescan-btn" id="rescanBtn" type="button">Swap image</button>
+      </div>
+
+      <div class="action-row">
+        <button class="process-btn" id="processBtn" disabled>
+          <span class="shine"></span>
+          <span class="btn-label">
+            <span class="spinner"></span>
+            <span class="btn-text">Process</span>
+          </span>
+        </button>
+      </div>
+    </div>
+
+    <!-- RIGHT: output -->
+    <div class="panel">
+      <div class="panel-head"><span><span class="idx">02</span> · Recon Report</span><span id="reportStatus">Standing by</span></div>
+      <div class="readout" id="readout">
+        <div class="empty-state">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M9 3H5a2 2 0 0 0-2 2v4m18 0V5a2 2 0 0 0-2-2h-4m0 18h4a2 2 0 0 0 2-2v-4M3 15v4a2 2 0 0 0 2 2h4"/></svg>
+          <p>Report will appear here once NINJA processes your image.</p>
+          <div class="mono">AWAITING TARGET</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <footer>
+    Runs entirely client-side · Powered by <a href="https://ai.google.dev/" target="_blank" rel="noopener">Google AI Studio — Gemini 3.5 Flash</a>
+  </footer>
+</div>
+
+<script>
+(function(){
+  // ---------- ambient embers ----------
+  const emberHost = document.getElementById('embers');
+  const emberCount = window.innerWidth < 700 ? 14 : 26;
+  for(let i=0;i<emberCount;i++){
+    const e = document.createElement('div');
+    e.className = 'ember';
+    const left = Math.random()*100;
+    const dur = 7 + Math.random()*9;
+    const delay = Math.random()*10;
+    const drift = (Math.random()*60-30)+'px';
+    e.style.left = left+'vw';
+    e.style.animationDuration = dur+'s';
+    e.style.animationDelay = delay+'s';
+    e.style.setProperty('--drift', drift);
+    emberHost.appendChild(e);
+  }
+
+  // ---------- elements ----------
+  const apiKeyInput = document.getElementById('apiKey');
+  const toggleKeyBtn = document.getElementById('toggleKey');
+  const keyStatus = document.getElementById('keyStatus');
+  const keyStatusText = document.getElementById('keyStatusText');
+
+  const dropzone = document.getElementById('dropzone');
+  const fileInput = document.getElementById('fileInput');
+  const previewHolder = document.getElementById('previewHolder');
+  const previewImg = document.getElementById('previewImg');
+  const sweep = document.getElementById('sweep');
+  const sweepTint = document.getElementById('sweepTint');
+  const rescanBtn = document.getElementById('rescanBtn');
+  const fileMeta = document.getElementById('fileMeta');
+
+  const processBtn = document.getElementById('processBtn');
+  const readout = document.getElementById('readout');
+  const reportStatus = document.getElementById('reportStatus');
+
+  let currentFile = null;
+  let currentBase64 = null;
+
+  // ---------- API key handling (session-only storage) ----------
+  const savedKey = sessionStorage.getItem('ninja_gemini_key');
+  if(savedKey){
+    apiKeyInput.value = savedKey;
+    armKey();
+  }
+
+  apiKeyInput.addEventListener('input', () => {
+    const v = apiKeyInput.value.trim();
+    if(v){
+      sessionStorage.setItem('ninja_gemini_key', v);
+      armKey();
+    } else {
+      sessionStorage.removeItem('ninja_gemini_key');
+      disarmKey();
+    }
+  });
+
+  toggleKeyBtn.addEventListener('click', () => {
+    if(apiKeyInput.type === 'password'){
+      apiKeyInput.type = 'text';
+      toggleKeyBtn.textContent = 'Hide';
+    } else {
+      apiKeyInput.type = 'password';
+      toggleKeyBtn.textContent = 'Show';
+    }
+  });
+
+  function armKey(){
+    keyStatus.classList.add('armed');
+    keyStatusText.innerHTML = 'Key armed for this session — never leaves your browser';
+    updateProcessAvailability();
+  }
+  function disarmKey(){
+    keyStatus.classList.remove('armed');
+    keyStatusText.innerHTML = 'No key armed — get one free at <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">Google AI Studio</a>';
+    updateProcessAvailability();
+  }
+
+  // ---------- upload handling ----------
+  ['dragover','dragenter'].forEach(evt => {
+    dropzone.addEventListener(evt, e => { e.preventDefault(); dropzone.classList.add('drag'); });
+  });
+  ['dragleave','dragend','drop'].forEach(evt => {
+    dropzone.addEventListener(evt, e => { dropzone.classList.remove('drag'); });
+  });
+  dropzone.addEventListener('drop', e => {
+    e.preventDefault();
+    const f = e.dataTransfer.files[0];
+    if(f) handleFile(f);
+  });
+
+  fileInput.addEventListener('change', () => {
+    if(fileInput.files[0]) handleFile(fileInput.files[0]);
+  });
+
+  rescanBtn.addEventListener('click', (e) => {
+    e.preventDefault();
+    fileInput.value = '';
+    currentFile = null;
+    currentBase64 = null;
+    previewHolder.classList.remove('show');
+    dropzone.style.display = 'flex';
+    fileMeta.textContent = '—';
+    resetReadout();
+    updateProcessAvailability();
+  });
+
+  function handleFile(file){
+    if(!file.type.startsWith('image/')){
+      showError('That file doesn\'t look like an image. Try a JPG, PNG, or WEBP.');
+      return;
+    }
+    currentFile = file;
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      previewImg.src = e.target.result;
+      currentBase64 = e.target.result.split(',')[1];
+      previewHolder.classList.add('show');
+      dropzone.style.display = 'none';
+      const kb = (file.size/1024).toFixed(0);
+      fileMeta.textContent = file.name.length > 22 ? file.name.slice(0,19)+'…' : file.name;
+      fileMeta.title = `${file.name} · ${kb} KB`;
+      resetReadout();
+      updateProcessAvailability();
+    };
+    reader.readAsDataURL(file);
+  }
+
+  function updateProcessAvailability(){
+    const keyOk = apiKeyInput.value.trim().length > 0;
+    processBtn.disabled = !(keyOk && currentFile);
+  }
+
+  // ---------- readout rendering ----------
+  function resetReadout(){
+    reportStatus.textContent = 'Standing by';
+    readout.innerHTML = `
+      <div class="empty-state">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M9 3H5a2 2 0 0 0-2 2v4m18 0V5a2 2 0 0 0-2-2h-4m0 18h4a2 2 0 0 0 2-2v-4M3 15v4a2 2 0 0 0 2 2h4"/></svg>
+        <p>Report will appear here once NINJA processes your image.</p>
+        <div class="mono">AWAITING TARGET</div>
+      </div>`;
+  }
+
+  function showError(msg){
+    reportStatus.textContent = 'Failed';
+    readout.innerHTML = `
+      <div class="error-box">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 8v5M12 16h.01"/></svg>
+        <div>${msg}</div>
+      </div>`;
+  }
+
+  function escapeHtml(str){
+    const d = document.createElement('div');
+    d.textContent = str;
+    return d.innerHTML;
+  }
+
+  function renderReport(data){
+    reportStatus.textContent = 'Complete';
+    readout.innerHTML = '';
+
+    if(data && data.mode === 'chart'){
+      renderChartReport(data);
+    } else {
+      renderImageReport(data);
+    }
+  }
+
+  function renderImageReport(data){
+    const sections = [];
+
+    // Description
+    sections.push({
+      label: 'Description',
+      body: `<div class="sec-body">${escapeHtml(data.description || 'No description returned.')}</div>`
+    });
+
+    // Objects / tags
+    if(Array.isArray(data.objects) && data.objects.length){
+      const tags = data.objects.map((t,i)=>`<span class="tag" style="animation-delay:${i*40}ms">${escapeHtml(t)}</span>`).join('');
+      sections.push({ label:'Detected objects', body:`<div class="tag-grid">${tags}</div>` });
+    }
+
+    // Mood / colors
+    if(data.mood || (Array.isArray(data.colors) && data.colors.length)){
+      let body = '';
+      if(data.mood) body += `<div class="sec-body" style="margin-bottom:10px;">${escapeHtml(data.mood)}</div>`;
+      if(Array.isArray(data.colors) && data.colors.length){
+        body += `<div class="tag-grid">${data.colors.map((c,i)=>`<span class="tag" style="animation-delay:${i*40}ms">${escapeHtml(c)}</span>`).join('')}</div>`;
+      }
+      sections.push({ label:'Mood & palette', body });
+    }
+
+    // Technical data table
+    if(data.technical && typeof data.technical === 'object'){
+      const rows = Object.entries(data.technical)
+        .filter(([,v]) => v !== null && v !== undefined && v !== '')
+        .map(([k,v]) => `<tr><td>${escapeHtml(k.replace(/_/g,' '))}</td><td>${escapeHtml(String(v))}</td></tr>`)
+        .join('');
+      if(rows){
+        sections.push({ label:'Technical readout', body:`<table class="data-table">${rows}</table>` });
+      }
+    }
+
+    sections.forEach((s, i) => {
+      const div = document.createElement('div');
+      div.className = 'readout-section';
+      div.style.animationDelay = (i*110)+'ms';
+      div.innerHTML = `<div class="sec-label">${escapeHtml(s.label)}</div>${s.body}`;
+      readout.appendChild(div);
+    });
+  }
+
+  function renderChartReport(data){
+    const sections = [];
+    const bias = (data.bias || 'Neutral/Choppy').trim();
+    const biasLower = bias.toLowerCase();
+    const biasClass = biasLower.includes('bull') ? 'bias-bull' : biasLower.includes('bear') ? 'bias-bear' : 'bias-neutral';
+    const conf = Math.max(0, Math.min(100, parseInt(data.confidence_percent, 10) || 0));
+
+    // Bias badge + confidence meter
+    sections.push({
+      label: 'Directional bias',
+      body: `
+        <div class="bias-row">
+          <span class="bias-badge ${biasClass}">${escapeHtml(bias)}</span>
+          <div class="conf-wrap">
+            <div class="conf-label"><span>Confidence</span><span>${conf}%</span></div>
+            <div class="conf-track"><div class="conf-fill ${biasClass}" style="width:${conf}%"></div></div>
+          </div>
+        </div>`
+    });
+
+    if(data.asset_and_timeframe){
+      sections.push({ label:'Asset & timeframe', body:`<div class="sec-body">${escapeHtml(data.asset_and_timeframe)}</div>` });
+    }
+
+    if(data.trend_summary){
+      sections.push({ label:'Trend read', body:`<div class="sec-body">${escapeHtml(data.trend_summary)}</div>` });
+    }
+
+    if(Array.isArray(data.patterns_detected) && data.patterns_detected.length){
+      const tags = data.patterns_detected.map((t,i)=>`<span class="tag" style="animation-delay:${i*40}ms">${escapeHtml(t)}</span>`).join('');
+      sections.push({ label:'Patterns detected', body:`<div class="tag-grid">${tags}</div>` });
+    }
+
+    if(Array.isArray(data.key_levels) && data.key_levels.length){
+      const items = data.key_levels.map(l=>`<li>${escapeHtml(l)}</li>`).join('');
+      sections.push({ label:'Key levels', body:`<ul class="level-list">${items}</ul>` });
+    }
+
+    if(data.risk_notes){
+      sections.push({ label:'Risk notes', body:`<div class="sec-body">${escapeHtml(data.risk_notes)}</div>` });
+    }
+
+    sections.forEach((s, i) => {
+      const div = document.createElement('div');
+      div.className = 'readout-section';
+      div.style.animationDelay = (i*110)+'ms';
+      div.innerHTML = `<div class="sec-label">${escapeHtml(s.label)}</div>${s.body}`;
+      readout.appendChild(div);
+    });
+
+    // Disclaimer always last, styled distinctly
+    const disc = document.createElement('div');
+    disc.className = 'readout-section disclaimer-box';
+    disc.style.animationDelay = (sections.length*110)+'ms';
+    disc.innerHTML = `
+      <div class="sec-label" style="color:var(--steel);">Disclaimer</div>
+      <div class="sec-body" style="font-size:14px; color:var(--steel);">${escapeHtml(data.disclaimer || 'This is an automated read of a static screenshot, not financial advice. Trading carries risk of loss.')}</div>`;
+    readout.appendChild(disc);
+  }
+
+  // ---------- Gemini call ----------
+  processBtn.addEventListener('click', async () => {
+    if(!currentBase64 || !currentFile) return;
+    const apiKey = apiKeyInput.value.trim();
+    if(!apiKey) return;
+
+    processBtn.classList.add('loading');
+    processBtn.disabled = true;
+    sweep.classList.add('on');
+    sweepTint.classList.add('on');
+    reportStatus.textContent = 'Scanning…';
+    readout.innerHTML = `
+      <div class="empty-state">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="animation:pulse 1.2s ease-in-out infinite;"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>
+        <p>NINJA is moving through the shadows of your image…</p>
+        <div class="mono">ANALYZING</div>
+      </div>`;
+
+    const prompt = `You are an image analysis engine. First determine whether the attached image is (A) a financial/trading candlestick or line chart (e.g. from Quotex, TradingView, MT4/5, Binomo, or similar platforms), or (B) a general/ordinary image (photo, illustration, screenshot, etc). Then return ONLY a raw JSON object (no markdown fences, no commentary).
+
+If it is CASE A (a trading chart), use this exact shape:
+{
+  "mode": "chart",
+  "asset_and_timeframe": "best guess at the traded asset/pair and candle timeframe visible on screen, or 'not clearly visible' if unreadable",
+  "trend_summary": "2-3 sentence plain-language read of the recent price action and overall trend direction shown in the visible candles.",
+  "patterns_detected": ["list of concrete candlestick/chart patterns you can actually see, e.g. Higher Highs, Doji, Engulfing Candle, Support Bounce, Resistance Rejection — max 6, empty array if none clear"],
+  "key_levels": ["approximate support/resistance zones visible, described relatively e.g. 'resistance near recent swing high' — max 4"],
+  "bias": "Bullish, Bearish, or Neutral/Choppy — your best technical read of near-term directional pressure from ONLY what is visibly on the chart",
+  "confidence_percent": "an integer 0-100 reflecting how clear/reliable the visible pattern is (be conservative; noisy or short-history charts should score low)",
+  "risk_notes": "1-2 sentences on why this is uncertain (short timeframe, thin candle history, sideways chop, news risk, etc.)",
+  "disclaimer": "This is an automated pattern read of a static screenshot, not financial advice. Binary options and leveraged trading carry high risk of rapid, total loss. Do not trade based solely on this output."
+}
+
+If it is CASE B (an ordinary image), use this exact shape:
+{
+  "mode": "image",
+  "description": "A vivid 2-4 sentence natural-language description of what's in the image: subjects, setting, composition, action.",
+  "objects": ["short", "list", "of", "key", "objects", "or", "elements", "detected", "max 10"],
+  "mood": "One sentence describing the mood/atmosphere/style of the image.",
+  "colors": ["3-6 dominant color names, e.g. Slate Blue, Warm Amber"],
+  "technical": {
+    "estimated_dimensions": "e.g. 1920x1080 or 'landscape, ~4:3' if exact pixels unknown",
+    "orientation": "portrait, landscape, or square",
+    "estimated_format": "e.g. photograph, illustration, 3D render, screenshot",
+    "estimated_camera_angle": "e.g. eye-level, low angle, aerial, close-up macro",
+    "estimated_lighting": "e.g. natural daylight, studio softbox, golden hour, low-key",
+    "estimated_focal_length_or_lens": "best guess, e.g. wide-angle, telephoto, standard 50mm-equivalent, or 'n/a' if not a photo",
+    "estimated_iso_aperture_shutter": "best-effort camera settings guess if photographic, else 'n/a'",
+    "quality_notes": "sharpness, noise, compression artifacts, resolution impression"
+  }
+}
+
+Never fabricate a "Buy" or "Sell" instruction or a guaranteed outcome — describe technical bias and confidence only, grounded strictly in visible chart evidence. Make your best expert estimate for every field even if you must infer from visual evidence; never leave a field empty. Return ONLY the JSON object matching the correct case.`;
+
+    try{
+      const model = 'gemini-3.5-flash';
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(apiKey)}`;
+
+      const resp = await fetch(url, {
+        method:'POST',
+        headers:{ 'Content-Type':'application/json' },
+        body: JSON.stringify({
+          contents: [{
+            role:'user',
+            parts: [
+              { text: prompt },
+              { inline_data: { mime_type: currentFile.type || 'image/jpeg', data: currentBase64 } }
+            ]
+          }],
+          generationConfig: {
+            responseMimeType: 'application/json'
+          }
+        })
+      });
+
+      if(!resp.ok){
+        const errText = await resp.text();
+        let msg = `Request failed (${resp.status}).`;
+        try{
+          const errJson = JSON.parse(errText);
+          if(errJson.error && errJson.error.message) msg = errJson.error.message;
+        }catch(_){}
+        throw new Error(msg);
+      }
+
+      const json = await resp.json();
+      const rawText = json?.candidates?.[0]?.content?.parts?.map(p=>p.text).filter(Boolean).join('') || '';
+
+      if(!rawText){
+        throw new Error('The model returned an empty response. Try again or use a different image.');
+      }
+
+      let cleaned = rawText.trim().replace(/^```json/i,'').replace(/^```/,'').replace(/```$/,'').trim();
+      let data;
+      try{
+        data = JSON.parse(cleaned);
+      }catch(parseErr){
+        throw new Error('Could not parse the model\'s report. Try processing again.');
+      }
+
+      renderReport(data);
+
+    }catch(err){
+      console.error(err);
+      showError(err.message || 'Something went wrong reaching Gemini. Check your API key and try again.');
+    }finally{
+      processBtn.classList.remove('loading');
+      processBtn.disabled = false;
+      sweep.classList.remove('on');
+      sweepTint.classList.remove('on');
+      updateProcessAvailability();
+    }
+  });
+
+})();
+</script>
+</body>
+</html>

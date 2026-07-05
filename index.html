@@ -764,21 +764,19 @@
         <div class="mono">ANALYZING</div>
       </div>`;
 
-        const prompt = `You are an elite institutional price action trader and high-frequency market analyst specializing in immediate NEXT-CANDLE directional forecasting (scalping analytics for platforms like Quotex, TradingView). Dissect the chart at the absolute right-hand edge using Candlestick Psychology (wick rejections, body momentum), Market Structure (SMC, Order Blocks, Liquidity Sweeps), and Support/Resistance zones to determine the exact outcome of the single NEXT immediate candlestick.
-
-First determine whether the attached image is (A) a financial/trading candlestick or line chart (e.g. from Quotex, TradingView, MT4/5, Binomo, or similar platforms), or (B) a general/ordinary image (photo, illustration, screenshot, etc). Then return ONLY a raw JSON object (no markdown fences, no commentary).
+    const prompt = `You are an image analysis engine. First determine whether the attached image is (A) a financial/trading candlestick or line chart (e.g. from Quotex, TradingView, MT4/5, Binomo, or similar platforms), or (B) a general/ordinary image (photo, illustration, screenshot, etc). Then return ONLY a raw JSON object (no markdown fences, no commentary).
 
 If it is CASE A (a trading chart), use this exact shape:
 {
   "mode": "chart",
-  "asset_and_timeframe": "Identify the asset pair and candle timeframe (e.g., EUR/USD, 1M). Guess based on visual cues if not explicit.",
-  "trend_summary": "CRITICAL NEXT-CANDLE READ: Provide a high-level professional breakdown of why the NEXT immediate candle will print a specific color. Explain the immediate order flow velocity, buyer/seller exhaustion wicks, or aggressive pressure dictating the next move.",
-  "patterns_detected": ["List 2-6 precise price action triggers visible, e.g., Bearish Engulfing Continuation, Pinbar Rejection at Support, FVG Liquidity Magnet, Exhaustion Wick, Buying Climax — max 6"],
-  "key_levels": ["List 2-4 key structural levels, order blocks, or round numbers the next candle will target or react to — max 4"],
-  "bias": "PREDICTION: Must explicitly state 'BULLISH (GREEN CANDLE)' or 'BEARISH (RED CANDLE)' or 'NEUTRAL/CHOPPY' based on the immediate next-candle projection, followed by a brief execution note.",
-  "confidence_percent": "An integer 0-100 reflecting the strict professional probability score of this next-candle setup playing out successfully.",
-  "risk_notes": "1-2 sentences explaining the exact market condition or trap (e.g., news spike, late fakeout, flat doji) that would invalidate this next-candle prediction.",
-  "disclaimer": "Automated next-candle visual pattern read, not financial advice. Manage risk tightly."
+  "asset_and_timeframe": "best guess at the traded asset/pair and candle timeframe visible on screen, or 'not clearly visible' if unreadable",
+  "trend_summary": "2-3 sentence plain-language read of the recent price action and overall trend direction shown in the visible candles.",
+  "patterns_detected": ["list of concrete candlestick/chart patterns you can actually see, e.g. Higher Highs, Doji, Engulfing Candle, Support Bounce, Resistance Rejection — max 6, empty array if none clear"],
+  "key_levels": ["approximate support/resistance zones visible, described relatively e.g. 'resistance near recent swing high' — max 4"],
+  "bias": "Bullish, Bearish, or Neutral/Choppy — your best technical read of near-term directional pressure from ONLY what is visibly on the chart",
+  "confidence_percent": "an integer 0-100 reflecting how clear/reliable the visible pattern is (be conservative; noisy or short-history charts should score low)",
+  "risk_notes": "1-2 sentences on why this is uncertain (short timeframe, thin candle history, sideways chop, news risk, etc.)",
+  "disclaimer": "This is an automated pattern read of a static screenshot, not financial advice. Binary options and leveraged trading carry high risk of rapid, total loss. Do not trade based solely on this output."
 }
 
 If it is CASE B (an ordinary image), use this exact shape:
@@ -800,7 +798,7 @@ If it is CASE B (an ordinary image), use this exact shape:
   }
 }
 
-Make your absolute best expert prediction for every field grounded strictly on visual evidence. Return ONLY the JSON object matching the correct case.`;
+Never fabricate a "Buy" or "Sell" instruction or a guaranteed outcome — describe technical bias and confidence only, grounded strictly in visible chart evidence. Make your best expert estimate for every field even if you must infer from visual evidence; never leave a field empty. Return ONLY the JSON object matching the correct case.`;
 
     try{
       const model = 'gemini-3.5-flash';
@@ -818,8 +816,7 @@ Make your absolute best expert prediction for every field grounded strictly on v
             ]
           }],
           generationConfig: {
-            responseMimeType: 'application/json', 
-            temperature: 0.1
+            responseMimeType: 'application/json'
           }
         })
       });
